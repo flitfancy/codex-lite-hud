@@ -1,0 +1,46 @@
+name: release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Build, test and verify clean ZIP
+        shell: pwsh
+        run: .\scripts\release.ps1 -DryRun
+      - name: Publish verified release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = (Get-Content VERSION -Raw).Trim()
+          $tag = "v$version"
+          if ($env:GITHUB_REF_NAME -ne $tag) { throw 'Tag and VERSION differ' }
+          $notes = "docs/releases/$tag.md"
+          if (-not (Test-Path -LiteralPath $notes)) { throw 'Release notes missing' }
+          $published = gh release view $tag --json isDraft --jq '.isDraft' 2>$null
+          if ($LASTEXITCODE -eq 0 -and $published -eq 'false') {
+            Write-Output 'Release already published; existing assets retained.'
+            exit 0
+          }
+          $zip = "dist/codex-lite-hud-$version-win-x64.zip"
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --verify-tag --draft --prerelease --latest=false --title "Codex Lite HUD $version 试用版" --notes-file $notes
+            if ($LASTEXITCODE -ne 0) { throw 'Draft release creation failed' }
+          }
+          gh release upload $tag $zip "$zip.sha256" --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'Release upload failed' }
+          gh release edit $tag --draft=false --prerelease --latest=false --title "Codex Lite HUD $version 试用版" --notes-file $notes
+          if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }

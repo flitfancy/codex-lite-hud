@@ -1,0 +1,12 @@
+.local/
+dist/
+data/
+*.exe
+*.pdb
+*.previous.*
+position.json
+session.json
+status.json
+*.log
+Thumbs.db
+.DS_Store
