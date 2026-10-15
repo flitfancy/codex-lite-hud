@@ -19,10 +19,18 @@ static class LayoutChecks
             data.runningMs=(long)TimeSpan.FromHours(12.3).TotalMilliseconds;data.spanMs=(long)TimeSpan.FromDays(23.4).TotalMilliseconds;
             data.accountQuota=new QuotaSnapshot { readAt=DateTimeOffset.Now.ToString("o"),source="layout check",windows=new[]{new QuotaWindow { name="7 天",remaining=100 }} };
             var cases=new[]{new[]{73f,730f,1f},new[]{73f,620f,1f},new[]{73f,474f,1f},new[]{73f,164f,1f},new[]{73f,369f,1f},new[]{73f,370f,1f},new[]{110f,930f,1.5f},new[]{95f,620f,1f}};
+            var hostLimit=SystemInformation.MaxWindowTrackSize;
+            if(args.Length>2)hostLimit.Height=Math.Min(hostLimit.Height,Int32.Parse(args[2]));
             using(var log=new StreamWriter(args[1]))
-            foreach(var sample in cases)
+            foreach(var requested in cases)
             using(var form=new Hud(true,IntPtr.Zero))
             {
+                // WinForms limits top-level forms to the desktop's maximum
+                // tracking size, including on small hosted-runner desktops.
+                // Exercise the same DPI cases within the actual host bounds.
+                var sample=(float[])requested.Clone();
+                if(hostLimit.Width>0)sample[0]=Math.Min(sample[0],hostLimit.Width);
+                if(hostLimit.Height>0)sample[1]=Math.Min(sample[1],hostLimit.Height);
                 typeof(Hud).GetField("data",Private).SetValue(form,data);
                 typeof(Hud).GetField("uiScale",Private).SetValue(form,sample[2]);
                 typeof(Hud).GetField("railPixels",Private).SetValue(form,(int)sample[0]);
@@ -35,7 +43,7 @@ static class LayoutChecks
                     var required=TextRenderer.MeasureText(title.Text,title.Font,new Size(title.Width,32767),TextFormatFlags.WordBreak|TextFormatFlags.NoPrefix);
                     if(required.Width>title.Width || required.Height>title.Height)throw new Exception("Title does not fit multiline area: "+required+" in "+title.Size);
                 }
-                if(form.ClientSize.Width!=(int)sample[0] || form.ClientSize.Height!=(int)sample[1])throw new Exception("Viewport size mismatch");
+                if(form.ClientSize.Width!=(int)sample[0] || form.ClientSize.Height!=(int)sample[1])throw new Exception("Viewport size mismatch: expected="+sample[0]+"x"+sample[1]+", actual="+form.ClientSize+", host limit="+hostLimit);
                 foreach(string name in new[]{"requestInput","usage","requestOutput","output","context","speed","remaining","counts","time","spanTime"})
                 {
                     var label=(Label)typeof(Hud).GetField(name,Private).GetValue(form);
@@ -79,7 +87,7 @@ static class LayoutChecks
                     }
                     image.Save(Path.Combine(Path.GetDirectoryName(args[1]),"layout-"+sample[0]+"x"+sample[1]+".png"));
                 }
-                log.WriteLine("PASS "+sample[0]+"x"+sample[1]+" @ "+sample[2]+" scale; numeric text fits without clipping.");
+                log.WriteLine("PASS "+sample[0]+"x"+sample[1]+" @ "+sample[2]+" scale; requested="+requested[0]+"x"+requested[1]+", host limit="+hostLimit+"; numeric text fits without clipping.");
             }
             using(var log=new StreamWriter(args[1],true))
             using(var form=new Hud(true,IntPtr.Zero))

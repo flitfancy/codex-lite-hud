@@ -40,6 +40,10 @@ foreach($name in @('AppPathsChecks','ResponsivenessChecks','AppearanceChecks','Q
     if($name -eq 'AppPathsChecks'){$arguments=@($report,$version)}
     if($name -eq 'MovementChecks'){$arguments=@($report,'100')}
     try{Invoke-Fixture $exe $arguments}finally{if(Test-Path -LiteralPath $report){Get-Content -LiteralPath $report}}
+    if($name -eq 'LayoutChecks'){
+        $smallReport=Join-Path $qa 'LayoutSmallDesktopChecks.txt'
+        try{Invoke-Fixture $exe @('00000000-0000-7000-8000-000000000001',$smallReport,'700')}finally{if(Test-Path -LiteralPath $smallReport){Get-Content -LiteralPath $smallReport}}
+    }
 }
 $app=Join-Path $root '.local\build\CodexLiteHud.exe';$info=Join-Path $qa 'info.json';$usage=Join-Path $qa 'usage.json'
 Invoke-Fixture $app @('--check-info',$info)
