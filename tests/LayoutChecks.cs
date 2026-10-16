@@ -8,6 +8,7 @@ using System.Windows.Forms;
 static class LayoutChecks
 {
     const BindingFlags Private=BindingFlags.Instance|BindingFlags.NonPublic;
+    static float FieldFont(Hud hud,string name){return ((Label)typeof(Hud).GetField(name,Private).GetValue(hud)).Font.Size;}
     [STAThread]
     static void Main(string[] args)
     {
@@ -38,14 +39,15 @@ static class LayoutChecks
                 typeof(Hud).GetMethod("ApplyLayout",Private).Invoke(form,null);
                 if(sample[1]/sample[2]>=620)
                 {
-                    var title=(Label)typeof(Hud).GetField("quota",Private).GetValue(form);
+                    var title=(Label)typeof(Hud).GetField("sessionTitle",Private).GetValue(form);
                     title.Text="查看 flitrealize 架构与测试文件";
                     var required=TextRenderer.MeasureText(title.Text,title.Font,new Size(title.Width,32767),TextFormatFlags.WordBreak|TextFormatFlags.NoPrefix);
                     if(required.Width>title.Width || required.Height>title.Height)throw new Exception("Title does not fit multiline area: "+required+" in "+title.Size);
                 }
                 if(form.ClientSize.Width!=(int)sample[0] || form.ClientSize.Height!=(int)sample[1])throw new Exception("Viewport size mismatch: expected="+sample[0]+"x"+sample[1]+", actual="+form.ClientSize+", host limit="+hostLimit);
-                foreach(string name in new[]{"requestInput","usage","requestOutput","output","context","speed","remaining","remainingSecondary","counts","time","spanTime"})
+                foreach(string name in new[]{"requestInput","usage","requestOutput","output","context","capacity","speed","remaining","remainingSecondary","counts","time","spanTime"})
                 {
+                    if(name=="capacity" && (bool)typeof(Hud).GetField("compactLayout",Private).GetValue(form))continue;
                     var label=(Label)typeof(Hud).GetField(name,Private).GetValue(form);
                     var measured=TextRenderer.MeasureText(label.Text,label.Font,new Size(32767,32767),TextFormatFlags.SingleLine|TextFormatFlags.NoPrefix);
                     if(measured.Width>label.Width || measured.Height>label.Height)throw new Exception(name+" clipped in "+sample[0]+"x"+sample[1]+": "+measured+" in "+label.Size);
@@ -56,9 +58,8 @@ static class LayoutChecks
                 var running=(Label)typeof(Hud).GetField("time",Private).GetValue(form);var span=(Label)typeof(Hud).GetField("spanTime",Private).GetValue(form);
                 var firstQuota=(Label)typeof(Hud).GetField("remaining",Private).GetValue(form);var secondQuota=(Label)typeof(Hud).GetField("remainingSecondary",Private).GetValue(form);
                 if(firstQuota.Bottom>secondQuota.Top || !firstQuota.Text.Contains("100%") || !secondQuota.Text.Contains("100%"))throw new Exception("Two quota windows overlap or disappear at "+form.Size+": "+firstQuota.Text+" "+firstQuota.Bounds+" / "+secondQuota.Text+" "+secondQuota.Bounds);
-                bool compactTime=(bool)typeof(Hud).GetField("compactLayout",Private).GetValue(form);
                 if(running.Text.Contains("/") || span.Text.Contains("/") || running.Bottom>span.Top)throw new Exception("Time readings still share one crowded line");
-                if(!compactTime && sample[1]/sample[2]>=620 && (running.Font.Size<13*sample[2] || span.Font.Size<13*sample[2]))throw new Exception("Time digits are too small at normal height");
+                if(Math.Abs(running.Font.Size-span.Font.Size)>.01 || Math.Abs(running.Font.Size-FieldFont(form,"context"))>.01)throw new Exception("Time and other reading sizes differ");
                 int bottom=0;
                 foreach(string id in settings.Visible)
                 {
@@ -77,7 +78,7 @@ static class LayoutChecks
                     foreach(Control child in form.Controls)
                     {
                         bool shown=child==typeof(Hud).GetField("brand",Private).GetValue(form) || child==typeof(Hud).GetField("tag",Private).GetValue(form);
-                        if(!compact && (child==typeof(Hud).GetField("quota",Private).GetValue(form) || child==typeof(Hud).GetField("capacity",Private).GetValue(form)))shown=true;
+                        if(!compact && (child==typeof(Hud).GetField("sessionTitle",Private).GetValue(form) || child==typeof(Hud).GetField("capacity",Private).GetValue(form)))shown=true;
                         foreach(string id in settings.Visible)
                         {
                             var row=rows[id];if(child==row.GetType().GetField("value",Private).GetValue(row) || (!compact && child==row.GetType().GetField("caption",Private).GetValue(row)))shown=true;

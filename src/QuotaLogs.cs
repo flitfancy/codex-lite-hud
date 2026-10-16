@@ -13,31 +13,17 @@ static class QuotaLogs
     static readonly HashSet<string> pending=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     static readonly List<FileSystemWatcher> watchers=new List<FileSystemWatcher>();
     static readonly Dictionary<string,Tail> tails=new Dictionary<string,Tail>(StringComparer.OrdinalIgnoreCase);
+    // Refresh owns Gate across all tail reads, so their 128 cursors can share
+    // one I/O buffer while keeping their partial records independent.
     static readonly byte[] buffer=new byte[8192];
     static readonly byte[] tokenMarker=Encoding.ASCII.GetBytes("\"token_count\"");
     sealed class Tail
     {
-        internal long position,created,written,seen;
-        internal byte[] line=new byte[1024];
-        internal int count;
-        internal bool skipping;
-        internal void Append(byte[] bytes,int start,int length)
-        {
-            if(skipping)return;
-            // Ordinary tool outputs can be megabytes long. Their first KiB
-            // identifies them, so never retain the rest in the quota reader.
-            int prefix=Math.Min(length,Math.Max(0,1024-count));
-            if(prefix>0){Buffer.BlockCopy(bytes,start,line,count,prefix);count+=prefix;start+=prefix;length-=prefix;}
-            if(count>=1024 && !ContainsToken(line,count)){skipping=true;count=0;return;}
-            if(count+length>65536){skipping=true;count=0;return;}
-            if(line.Length<count+length)Array.Resize(ref line,Math.Min(65536,Math.Max(line.Length*2,count+length)));
-            if(length>0){Buffer.BlockCopy(bytes,start,line,count,length);count+=length;}
-        }
-        internal void Complete()
-        {
-            if(!skipping && count>0 && ContainsToken(line,count))ParseLine(Encoding.UTF8.GetString(line,0,count));
-            count=0;skipping=false;
-        }
+        internal long seen;
+        // Account discovery reads only the last 256 KiB of a newly seen file.
+        // Unrelated tool output is rejected after its first KiB; quota records
+        // retain the existing 64 KiB line limit and partial-line continuation.
+        internal readonly IncrementalLogReader reader=new IncrementalLogReader(262144,65536,true,ContainsToken,buffer);
     }
     static bool ContainsToken(byte[] bytes,int count)
     {
@@ -98,7 +84,9 @@ static class QuotaLogs
                     }
                     for(int day=-1;day<7;day++)AddFiles(Path.Combine(root,DateTime.Now.AddDays(-day).ToString("yyyy\\MM\\dd")),recent);
                 }
-                foreach(var file in recent.OrderByDescending(x=>x.LastWriteTimeUtc).Take(16))pending.Add(file.FullName);
+                // Recursive startup discovery and recent dated folders overlap.
+                // Deduplicate before the limit so all sixteen slots are files.
+                foreach(var file in recent.GroupBy(x=>x.FullName,StringComparer.OrdinalIgnoreCase).Select(x=>x.First()).OrderByDescending(x=>x.LastWriteTimeUtc).Take(16))pending.Add(file.FullName);
             }
             var paths=pending.ToArray();pending.Clear();Volatile.Write(ref pendingCount,0);
             foreach(var path in paths)ReadTail(path);
@@ -112,38 +100,19 @@ static class QuotaLogs
     {
         try
         {
-            var file=new FileInfo(path);if(!file.Exists)return;
+            if(!File.Exists(path))return;
             Tail tail;
-            long length=file.Length,created=file.CreationTimeUtc.Ticks,written=file.LastWriteTimeUtc.Ticks;
-            if(!tails.TryGetValue(path,out tail) || tail.created!=created || length<tail.position || (length==tail.position && tail.written!=written))
+            if(!tails.TryGetValue(path,out tail))
             {
-                if(tails.Count>=128 && !tails.ContainsKey(path))tails.Remove(tails.OrderBy(x=>x.Value.seen).First().Key);
-                long start=Math.Max(0,length-262144);
-                tail=new Tail{position=start,created=created,skipping=start>0};tails[path]=tail;
+                if(tails.Count>=128)tails.Remove(tails.OrderBy(x=>x.Value.seen).First().Key);
+                tail=new Tail();tails[path]=tail;
             }
             tail.seen=DateTime.UtcNow.Ticks;
-            if(length==tail.position)return;
-            using(var stream=new FileStream(path,FileMode.Open,FileAccess.Read,FileShare.ReadWrite|FileShare.Delete))
-            {
-                stream.Position=tail.position;
-                while(tail.position<length)
-                {
-                    int read=stream.Read(buffer,0,(int)Math.Min(buffer.Length,length-tail.position));if(read==0)break;
-                    int start=0;
-                    while(start<read)
-                    {
-                        int end=Array.IndexOf(buffer,(byte)10,start,read-start);
-                        tail.Append(buffer,start,(end<0?read:end)-start);
-                        if(end<0)break;
-                        tail.Complete();start=end+1;
-                    }
-                    tail.position+=read;
-                }
-                tail.written=written;
-            }
+            tail.reader.Read(path,IgnoreReset,ParseLine);
         }
         catch { }
     }
+    static void IgnoreReset() { }
     static void ParseLine(string line)
     {
         try

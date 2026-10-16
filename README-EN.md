@@ -4,16 +4,20 @@
 
 [简体中文](README.md) · [First run](first-run.md) · [Changelog](CHANGELOG.md) · [Releases](https://github.com/flitfancy/codex-lite-hud/releases)
 
-Codex Lite HUD is a small Windows overlay showing the selected local chat's cumulative input and output tokens, recorded context usage, request-average tokens per second, and remaining account quota. Current version: **1.0.1**.
+Codex Lite HUD is a small Windows overlay showing the selected local chat's cumulative input and output tokens, recorded context usage, request-average tokens per second, and remaining account quota. Current version: **1.0.2**.
 
-Download the Windows x64 release ZIP, extract it into a writable folder, and run `CodexLiteHud.exe`. Magpie, Node.js and Python are not required. The tested environment is Windows 11 x64 with .NET Framework 4.8-series and the Windows Codex desktop app. Other Windows/client versions, CLI sessions and remote-only chats require separate validation.
+Download `codex-lite-hud-1.0.2-win-x64.zip` from Releases, extract it into a writable folder, and run `CodexLiteHud.exe`. Magpie, Node.js and Python are not required. The tested environment is Windows 11 x64 with .NET Framework 4.8-series and the Windows Codex desktop app. Other Windows/client versions, CLI sessions and remote-only chats require separate validation.
+
+To upgrade, exit the old HUD, replace the program and scripts in the same folder with the new package, preserve your `data/` settings, and start the HUD again.
 
 ## Readings and behavior
+
+Body text and readings use larger, bold type, with one shared size for body text and one for every visible reading, including runtime, span and context capacity. Each group fits its actual label space without an extra height-based font reduction; unchanged content reuses font measurements.
 
 - Input/output each show the latest recorded request (本次) and chat total (对话). Input includes cached tokens; output includes reasoning tokens. A user turn can contain several requests; the latest request is not a turn total.
 - Context is the latest recorded request's input plus output, divided by the recorded context window, rather than cumulative chat input.
 - Speed includes request waiting time and is not a pure decoding benchmark.
-- Nine blocks are shown by default; model is hidden and available from the menu. Turns/compactions follow context, then cache share. Request duration precedes runtime/span; runtime and span use separate larger readings. Right-click to toggle or reorder blocks. Choices persist, with a restore-default action. The HUD and menus have no hover tooltips.
+- Nine blocks are shown by default; model is hidden and available from the menu. Turns/compactions follow context, then cache share. Request duration precedes runtime/span; runtime and span use separate readings. Right-click to toggle or reorder blocks. Choices persist, with a restore-default action. The HUD and menus have no hover tooltips.
 - Account quota comes from local log snapshots. Each recorded window shows its duration and remaining percentage, such as 5 hours and 7 days. One window takes one line; a second line appears only when a second valid window exists. Expired windows release their line.
 - Turns use distinct Codex `turn_id` start events. Compactions count persisted top-level `compacted` records, deduplicated by available IDs. Tool calls, in-turn steering and embedded replacement history do not create extra turns; missing turn events display an unknown value.
 - Time has two separate readings: cumulative turn runtime and elapsed span since the first retained record. Runtime includes tool and interaction waiting; active turns keep counting. The CLH header stays at the top, while the chat name expands and contracts with its wrapped text.

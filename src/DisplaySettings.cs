@@ -3,24 +3,16 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 
-static class Metrics
-{
-    internal static readonly string[] All={"input","output","context","counts","cache","duration","time","speed","remaining","model"};
-    internal static readonly string[] Names={"输入","输出","上下文","轮次/压缩","缓存占比","请求耗时","用时/跨度","tok/s","剩余额度","模型"};
-    internal static string Name(string id){int index=Array.IndexOf(All,id);return index<0?id:Names[index];}
-    internal static int Height(string id){return id=="time"?100:id=="input" || id=="output"?78:id=="context"?70:54;}
-}
-
 sealed class DisplaySettings
 {
     internal readonly List<string> Order=new List<string>(Metrics.All);
-    internal readonly HashSet<string> Hidden=new HashSet<string>{"model"};
+    internal readonly HashSet<string> Hidden=new HashSet<string>(Metrics.DefaultHidden);
     internal int QuotaWindowCount=1;
     internal IEnumerable<string> Visible {get{foreach(string id in Order)if(!Hidden.Contains(id))yield return id;}}
     internal int Count {get{int count=0;foreach(string id in Visible)count++;return count;}}
-    internal int Height(string id){return Metrics.Height(id)+(id=="remaining" && QuotaWindowCount>1?24:0);}
+    internal int Height(string id){return Metrics.Find(id).Height(QuotaWindowCount);}
     internal int NaturalHeight {get{int height=88;foreach(string id in Visible)height+=Height(id);return height;}}
-    internal void Reset(){Order.Clear();Order.AddRange(Metrics.All);Hidden.Clear();Hidden.Add("model");}
+    internal void Reset(){Order.Clear();Order.AddRange(Metrics.All);Hidden.Clear();Hidden.UnionWith(Metrics.DefaultHidden);}
     internal void Move(string id,int delta)
     {
         int index=Order.IndexOf(id),next=index+delta;if(index<0 || next<0 || next>=Order.Count)return;

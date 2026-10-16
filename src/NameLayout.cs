@@ -15,9 +15,9 @@ sealed class NameLayout
         if(raw==name && width==railWidth && scale==dpiScale)return;
         raw=name;width=railWidth;scale=dpiScale;
         int logicalWidth=(int)Math.Round(railWidth/dpiScale);
-        int pixels=Math.Max(20,(int)Math.Round((logicalWidth-10)*dpiScale));
-        float density=Math.Max(.65f,Math.Min(1.3f,logicalWidth/73f));
-        using(var font=new Font("Microsoft YaHei UI",8.5f*96f/72f*dpiScale*density,FontStyle.Regular,GraphicsUnit.Pixel))
+        int pixels=Math.Max(20,(int)Math.Round((logicalWidth-6)*dpiScale));
+        float density=Typography.WidthDensity(logicalWidth);
+        using(var font=new Font(Typography.Family,Typography.Pixels(Typography.BodyPoints,dpiScale,density),Typography.BodyStyle,GraphicsUnit.Pixel))
         {
             var result=new StringBuilder();string line="";
             var elements=StringInfo.GetTextElementEnumerator((name??"").Replace("\r", ""));

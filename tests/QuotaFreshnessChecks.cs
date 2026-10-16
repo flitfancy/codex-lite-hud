@@ -14,7 +14,7 @@ static class QuotaFreshnessChecks
             string oldChat=Path.Combine(oldFolder,"fixture-old-chat.jsonl");
             File.WriteAllText(oldChat,Program.Json.Serialize(new {timestamp=DateTimeOffset.UtcNow.AddMilliseconds(500).ToString("o"),type="event_msg",payload=new {type="token_count",rate_limits=new {limit_id="codex",primary=new {used_percent=80,window_minutes=10080}}}})+"\n");
             var initial=Reader.Read(selected).GetAwaiter().GetResult();
-            if(QuotaReader.Limiting(initial.accountQuota).remaining!=20)throw new Exception("Startup omitted a recently changed chat in an old date folder");
+            if(initial.accountQuota==null || initial.accountQuota.windows.Length!=1 || initial.accountQuota.windows[0].remaining!=20)throw new Exception("Startup omitted a recently changed chat in an old date folder");
             string path=Path.Combine(Program.CodexHome,"sessions","fixture-background.jsonl");
             var watch=Stopwatch.StartNew();
             File.WriteAllText(path,Program.Json.Serialize(new {timestamp=DateTimeOffset.UtcNow.AddSeconds(1).ToString("o"),type="event_msg",payload=new {type="token_count",rate_limits=new {limit_id="codex",primary=new {used_percent=89,window_minutes=10080}}}})+"\n");
@@ -23,7 +23,8 @@ static class QuotaFreshnessChecks
             do
             {
                 System.Threading.Thread.Sleep(50);
-                window=QuotaReader.Limiting(Reader.Read(selected).GetAwaiter().GetResult().accountQuota);
+                var snapshot=Reader.Read(selected).GetAwaiter().GetResult().accountQuota;
+                window=snapshot!=null && snapshot.windows.Length==1?snapshot.windows[0]:null;
             }while((window==null || window.remaining!=11) && DateTime.UtcNow<deadline);
             if(window==null || window.remaining!=11)throw new Exception("Selected session hides newer account quota from another session; expected 11%, actual "+(window==null?"missing":window.remaining.ToString()));
             File.Delete(path);

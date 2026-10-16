@@ -13,7 +13,10 @@ sealed class WindowTracking : IDisposable
     bool disposed;
     DateTime nextRetry;
     internal long PositionEvents;
-    internal bool Active { get {return locationHook!=IntPtr.Zero;} }
+    internal bool LocationEventsActive { get {return locationHook!=IntPtr.Zero;} }
+    internal bool MovingEventsActive { get {return moveHook!=IntPtr.Zero;} }
+    internal bool VisibilityEventsActive { get {return visibilityHook!=IntPtr.Zero;} }
+    internal bool ForegroundEventsActive { get {return foregroundHook!=IntPtr.Zero;} }
     internal WindowTracking(Action location,Action<bool> moving,Action visibility)
     {
         locationChanged=location;movingChanged=moving;visibilityChanged=visibility;

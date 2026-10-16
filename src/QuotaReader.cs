@@ -94,11 +94,5 @@ static class QuotaReader
         }
         return next;
     }
-    internal static QuotaWindow Limiting(QuotaSnapshot snapshot)
-    {
-        QuotaWindow limiting=null;
-        if(snapshot!=null)foreach(var window in snapshot.windows)if(limiting==null || window.remaining<limiting.remaining)limiting=window;
-        return limiting;
-    }
     internal static void Apply(Data data) { data.accountQuota=Current(data.accountQuota); }
 }

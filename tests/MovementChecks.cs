@@ -57,7 +57,8 @@ static class MovementChecks
                         samples.Sort();
                         double median=samples[samples.Count/2],p95=samples[(int)Math.Ceiling(samples.Count*.95)-1];
                         var events=(WindowTracking)typeof(Hud).GetField("tracking",Private).GetValue(hud);
-                        if(events==null || !events.Active || events.PositionEvents<44)throw new Exception("Native location events did not drive the HUD");
+                        if(events==null || !events.LocationEventsActive || events.PositionEvents<44)throw new Exception("Native location events did not drive the HUD");
+                        if(!events.MovingEventsActive || !events.VisibilityEventsActive || !events.ForegroundEventsActive)throw new Exception("Native event hook diagnostics did not report all installed hooks");
                         typeof(Hud).GetField("targetMoving",Private).SetValue(hud,true);
                         typeof(Hud).GetMethod("RecoverMotion",Private).Invoke(hud,null);
                         if((bool)typeof(Hud).GetField("targetMoving",Private).GetValue(hud))throw new Exception("Lost move-end state did not recover");
@@ -65,11 +66,13 @@ static class MovementChecks
                         typeof(Hud).GetMethod("AttachTracking",Private).Invoke(hud,null);
                         var fallback=(System.Windows.Forms.Timer)typeof(Hud).GetField("follow",Private).GetValue(hud);
                         if(fallback.Interval!=40)throw new Exception("Missing event hook did not restore fast polling fallback");
+                        if(events.LocationEventsActive || events.MovingEventsActive || events.VisibilityEventsActive || !events.ForegroundEventsActive)throw new Exception("Invalid target hook diagnostics did not distinguish foreground monitoring");
                         typeof(Hud).GetField("codex",Private).SetValue(hud,target.Handle);
                         typeof(Hud).GetMethod("AttachTracking",Private).Invoke(hud,null);
-                        if(fallback.Interval!=200 || !events.Active)throw new Exception("Event hooks did not rebind to target");
+                        if(fallback.Interval!=200 || !events.LocationEventsActive)throw new Exception("Event hooks did not rebind to target");
                         long before=events.PositionEvents;
                         hud.Dispose();
+                        if(events.LocationEventsActive || events.MovingEventsActive || events.VisibilityEventsActive || events.ForegroundEventsActive)throw new Exception("Disposed event hook diagnostics retained active hooks");
                         Native.SetWindowPos(target.Handle,IntPtr.Zero,-21000,-22000,1440,1256,0x0010|0x0004);
                         await Task.Delay(30);
                         if(events.PositionEvents!=before)throw new Exception("Location hook still active after HUD disposal");

@@ -22,7 +22,7 @@ static class PlanQuotaChecks
         if(!item.remaining.HasValue){Require(snapshot==null,path+": missing quota must stay unknown");return;}
         Require(snapshot!=null,path+": quota was dropped");
         Require(snapshot.windows.Length==item.windows,path+": wrong window count");
-        Require(QuotaReader.Limiting(snapshot).remaining==item.remaining.Value,path+": wrong remaining percent");
+        Require(Array.Exists(snapshot.windows,x=>x.remaining==item.remaining.Value),path+": expected remaining percent missing");
         var fields=SessionReader.Map(Program.Json.DeserializeObject(Program.Json.Serialize(snapshot)));
         Require(SessionReader.Text(SessionReader.At(fields,"planType"))==(item.plan??""),path+": plan metadata was lost or guessed");
     }

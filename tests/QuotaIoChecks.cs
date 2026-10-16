@@ -33,15 +33,15 @@ static class QuotaIoChecks
             if(read>=1048576)throw new Exception("Repeated quota reads exceed incremental I/O budget: "+result);
             var at=DateTimeOffset.UtcNow.AddMinutes(1);string line=Quota(30,at);
             File.AppendAllText(path,line.Substring(0,line.Length/2),new UTF8Encoding(false));notify.Invoke(null,new object[]{null,change});QuotaLogs.Refresh();
-            if(QuotaReader.Limiting(QuotaReader.Current()).remaining!=80)throw new Exception("Incomplete line changed quota");
+            if(QuotaReader.Current().windows[0].remaining!=80)throw new Exception("Incomplete line changed quota");
             File.AppendAllText(path,line.Substring(line.Length/2),new UTF8Encoding(false));notify.Invoke(null,new object[]{null,change});QuotaLogs.Refresh();
-            if(QuotaReader.Limiting(QuotaReader.Current()).remaining!=70)throw new Exception("Completed partial line was lost");
+            if(QuotaReader.Current().windows[0].remaining!=70)throw new Exception("Completed partial line was lost");
             File.WriteAllText(path,Quota(40,at.AddSeconds(1)),new UTF8Encoding(false));notify.Invoke(null,new object[]{null,change});QuotaLogs.Refresh();
-            if(QuotaReader.Limiting(QuotaReader.Current()).remaining!=60)throw new Exception("Truncated log did not reset cursor");
+            if(QuotaReader.Current().windows[0].remaining!=60)throw new Exception("Truncated log did not reset cursor");
             File.WriteAllText(path,Quota(50,at.AddSeconds(2)),new UTF8Encoding(false));File.SetLastWriteTimeUtc(path,DateTime.UtcNow.AddSeconds(2));notify.Invoke(null,new object[]{null,change});QuotaLogs.Refresh();
-            if(QuotaReader.Limiting(QuotaReader.Current()).remaining!=50)throw new Exception("Same-size rewrite did not reset cursor");
+            if(QuotaReader.Current().windows[0].remaining!=50)throw new Exception("Same-size rewrite did not reset cursor");
             File.AppendAllText(path,new string('x',300000)+"\n"+Quota(60,at.AddSeconds(3)),new UTF8Encoding(false));notify.Invoke(null,new object[]{null,change});QuotaLogs.Refresh();
-            if(QuotaReader.Limiting(QuotaReader.Current()).remaining!=40)throw new Exception("Long unrelated line hid following quota");
+            if(QuotaReader.Current().windows[0].remaining!=40)throw new Exception("Long unrelated line hid following quota");
             File.Delete(path);
             File.WriteAllText(args[0],"PASS "+result+" PASS partial line, truncation, same-size rewrite and huge unrelated line.");
         }

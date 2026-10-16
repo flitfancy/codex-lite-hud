@@ -242,51 +242,47 @@ static class SessionReader
     {
         internal string Id, Path, Model;
         internal long Input, Output, Cache, LastInput, LastOutput, ContextUsed, ContextLimit, RequestMs;
-        internal DateTimeOffset UsageAt, ContextAt, CallStart;
+        internal DateTimeOffset UsageAt, ContextAt, LastUsageAt, CallStart;
         internal QuotaSnapshot Quota;
         internal readonly SessionCounters Counters=new SessionCounters();
         internal readonly SessionTiming Timing=new SessionTiming();
-        long offset;
-        byte[] pending = new byte[0];
+        readonly IncrementalLogReader reader=new IncrementalLogReader(0,16777216,false,null);
 
         internal void Update()
         {
-            using (var stream = new FileStream(Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+            try { reader.Read(Path,Reset,ProcessLine); }
+            catch(FileNotFoundException) { Relocate(); }
+            catch(DirectoryNotFoundException) { Relocate(); }
+        }
+        void Relocate()
+        {
+            // Archiving changes the path, not the session. The shared reader
+            // preserves its partial line when the reopened file has the same
+            // identity, and resets statistics when it is a replacement.
+            Path=FindRollout(Id);reader.Read(Path,Reset,ProcessLine);
+        }
+        void Reset()
+        {
+            Model=null;
+            Input=Output=Cache=LastInput=LastOutput=ContextUsed=ContextLimit=RequestMs=0;
+            UsageAt=ContextAt=LastUsageAt=CallStart=DateTimeOffset.MinValue;
+            Quota=null;Counters.Reset();Timing.Reset();
+        }
+        void SetLast(Dictionary<string,object> usage,DateTimeOffset at,bool hasRequestTiming)
+        {
+            if(usage==null || at<LastUsageAt)return;
+            object input=At(usage,"input_tokens"),output=At(usage,"output_tokens");
+            // Some token_count records carry only total_tokens. They can update
+            // context without erasing a complete request from the other format.
+            if(input==null && output==null)return;
+            if(hasRequestTiming)
             {
-                if (stream.Length < offset)
-                {
-                    offset = 0; pending = new byte[0];
-                    Input = Output = Cache = LastInput = LastOutput = ContextUsed = ContextLimit = RequestMs = 0;
-                    UsageAt = ContextAt = CallStart = DateTimeOffset.MinValue;
-                    Quota=null;
-                    Counters.Reset();
-                    Timing.Reset();
-                }
-                stream.Position = offset;
-                while (stream.Position < stream.Length)
-                {
-                    int size = (int)Math.Min(1048576, stream.Length - stream.Position);
-                    var bytes = new byte[pending.Length + size];
-                    Buffer.BlockCopy(pending, 0, bytes, 0, pending.Length);
-                    int read = stream.Read(bytes, pending.Length, size);
-                    if (read == 0) break;
-                    offset += read;
-                    int end = Array.LastIndexOf(bytes, (byte)10, pending.Length + read - 1, pending.Length + read);
-                    if (end < 0)
-                    {
-                        if (bytes.Length > 16777216) throw new InvalidDataException("会话记录单行过长");
-                        pending = bytes; continue;
-                    }
-                    string text = Encoding.UTF8.GetString(bytes, 0, end + 1);
-                    pending = new byte[bytes.Length - end - 1];
-                    Buffer.BlockCopy(bytes, end + 1, pending, 0, pending.Length);
-                    using (var lines = new StringReader(text))
-                    {
-                        string line;
-                        while ((line = lines.ReadLine()) != null) ProcessLine(line);
-                    }
-                }
+                if(CallStart!=DateTimeOffset.MinValue && at>CallStart)RequestMs=(long)(at-CallStart).TotalMilliseconds;
+                else if(at>LastUsageAt)RequestMs=0;
+                CallStart=at;
             }
+            else if(at>LastUsageAt)RequestMs=0;
+            LastInput=Count(input);LastOutput=Count(output);LastUsageAt=at;
         }
 
         void ProcessLine(string line)
@@ -319,10 +315,8 @@ static class SessionReader
                 var last = Map(At(p, "usage"));
                 if (last != null)
                 {
-                    LastInput = Count(At(last, "input_tokens")); LastOutput = Count(At(last, "output_tokens"));
+                    SetLast(last,at,true);
                     if (at >= ContextAt) { ContextUsed = Count(At(last, "total_tokens")); ContextAt = at; }
-                    RequestMs = CallStart != DateTimeOffset.MinValue && at > CallStart ? (long)(at - CallStart).TotalMilliseconds : 0;
-                    CallStart = at;
                 }
             }
             else if (type == "event_msg" && Text(At(p, "type")) == "token_count")
@@ -334,6 +328,7 @@ static class SessionReader
                 var limit = At(info, "model_context_window");
                 if (limit != null) ContextLimit = Count(limit);
                 var last = Map(At(info, "last_token_usage"));
+                SetLast(last,at,false);
                 if (last != null && at >= ContextAt) { ContextUsed = Count(At(last, "total_tokens")); ContextAt = at; }
                 var total = Map(At(info, "total_token_usage"));
                 if (total != null && at >= UsageAt) { SetTotal(total); UsageAt = at; }
