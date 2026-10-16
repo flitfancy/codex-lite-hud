@@ -16,6 +16,7 @@ foreach($file in @('docs\DATA.md','docs\DEVELOPMENT.md','docs\PERFORMANCE.md')){
     Copy-Item -LiteralPath (Join-Path $root $file) -Destination $destination
 }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'install-shortcuts.ps1') -Destination $folder
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'launch-with-codex.ps1') -Destination $folder
 [IO.File]::WriteAllText((Join-Path $folder 'portable.flag'),'Store user settings in the adjacent data folder.'+[Environment]::NewLine)
 $dist=Join-Path $root 'dist';$null=New-Item -ItemType Directory -Path $dist -Force
 $zip=Join-Path $dist ($name+'.zip')

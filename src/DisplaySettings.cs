@@ -15,9 +15,11 @@ sealed class DisplaySettings
 {
     internal readonly List<string> Order=new List<string>(Metrics.All);
     internal readonly HashSet<string> Hidden=new HashSet<string>{"model"};
+    internal int QuotaWindowCount=1;
     internal IEnumerable<string> Visible {get{foreach(string id in Order)if(!Hidden.Contains(id))yield return id;}}
     internal int Count {get{int count=0;foreach(string id in Visible)count++;return count;}}
-    internal int NaturalHeight {get{int height=88;foreach(string id in Visible)height+=Metrics.Height(id);return height;}}
+    internal int Height(string id){return Metrics.Height(id)+(id=="remaining" && QuotaWindowCount>1?24:0);}
+    internal int NaturalHeight {get{int height=88;foreach(string id in Visible)height+=Height(id);return height;}}
     internal void Reset(){Order.Clear();Order.AddRange(Metrics.All);Hidden.Clear();Hidden.Add("model");}
     internal void Move(string id,int delta)
     {

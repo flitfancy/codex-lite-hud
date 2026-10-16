@@ -165,7 +165,18 @@ static class SessionReader
     internal static List<SessionEntry> Recent(int maximum = 30)
     {
         SessionCatalog catalog;
-        return Catalog.TryGet(out catalog) ? catalog.Recent(maximum) : new List<SessionEntry>();
+        var indexed=Catalog.TryGet(out catalog)?catalog.Recent(Int32.MaxValue):new List<SessionEntry>();
+        var indexedTitles=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
+        foreach(var row in indexed)if(!indexedTitles.ContainsKey(row.id))indexedTitles.Add(row.id,row.title);
+        var result=new List<SessionEntry>();var seen=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach(var row in NativeThreadCatalog.Recent())
+        {
+            string fallback;string title=row.title;
+            if(String.IsNullOrEmpty(title) && indexedTitles.TryGetValue(row.id,out fallback))title=fallback;
+            if(seen.Add(row.id))result.Add(new SessionEntry{id=row.id,title=title});
+        }
+        foreach(var row in indexed)if(seen.Add(row.id))result.Add(row);
+        return result.Take(Math.Max(0,maximum)).ToList();
     }
 
     internal static Data Read(string overrideId = null)
@@ -180,7 +191,8 @@ static class SessionReader
         }
         state.Update();
         SessionCatalog catalog;
-        string title = Catalog.TryGet(out catalog) ? catalog.Title(id) : null;
+        string title=NativeThreadCatalog.Title(id);
+        if(String.IsNullOrEmpty(title))title=Catalog.TryGet(out catalog)?catalog.Title(id):null;
         return new Data
         {
             sessionId = id,

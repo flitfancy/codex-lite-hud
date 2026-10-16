@@ -79,7 +79,7 @@ sealed class Data
         for(int i=0;i<accountQuota.windows.Length;i++)
         {
             var a=accountQuota.windows[i];var b=other.accountQuota.windows[i];
-            if(a.name!=b.name || a.remaining!=b.remaining || a.resetAt!=b.resetAt)return false;
+            if(a.name!=b.name || a.windowMinutes!=b.windowMinutes || a.remaining!=b.remaining || a.resetAt!=b.resetAt)return false;
         }
         return true;
     }
@@ -123,7 +123,7 @@ sealed class Hud : Form
     string titleRaw="识别会话";
     readonly Label output = new Label(), capacity = new Label();
     readonly Label requestInput=new Label(),requestOutput=new Label();
-    readonly Label remaining = new Label(), remainingCaption = new Label();
+    readonly Label remaining = new Label(), remainingCaption = new Label(), remainingSecondary=new Label();
     readonly Label counts=new Label(),countsCaption=new Label();
     readonly Label inputCaption = new Label(), outputCaption = new Label(), contextCaption = new Label(), speedCaption = new Label();
     readonly Label close = new Label();
@@ -184,7 +184,7 @@ sealed class Hud : Form
         rows.Add("counts",new MetricRow(countsCaption,counts));rows.Add("speed",new MetricRow(speedCaption,speed));
         rows.Add("remaining",new MetricRow(remainingCaption,remaining));
         foreach(string id in new[]{"model","cache","duration"})rows.Add(id,new MetricRow(new Label(),new Label()));
-        foreach(var row in rows.Values)numericLabels.Add(row.value);numericLabels.AddRange(new[]{capacity,requestInput,requestOutput,spanTime});
+        foreach(var row in rows.Values)numericLabels.Add(row.value);numericLabels.AddRange(new[]{capacity,requestInput,requestOutput,spanTime,remainingSecondary});
         using (var g = CreateGraphics()) uiScale = Math.Max(1, g.DpiX / 96f);
         ApplyLayout();
         close.Cursor = Cursors.Hand;
@@ -257,7 +257,7 @@ sealed class Hud : Form
 
     IEnumerable<Control> ReadoutControls()
     {
-        yield return this;yield return brand;yield return tag;yield return quota;yield return capacity;yield return requestInput;yield return requestOutput;yield return spanTime;yield return spanCaption;
+        yield return this;yield return brand;yield return tag;yield return quota;yield return capacity;yield return requestInput;yield return requestOutput;yield return spanTime;yield return spanCaption;yield return remainingSecondary;
         foreach(var row in rows.Values){yield return row.caption;yield return row.value;}
     }
     void BuildDisplayMenus(ToolStripMenuItem visibility,ToolStripMenuItem order)
@@ -392,6 +392,7 @@ sealed class Hud : Form
     string NameText {get{return data!=null && lastError=="" ? data.sessionTitle : titleRaw;}}
     void ApplyLayout()
     {
+        UpdateQuotaWindowCount(QuotaReader.Current(data==null?null:data.accountQuota));
         fitStates.Clear();SuspendLayout();
         int logicalWidth=railPixels>0 ? (int)Math.Round(railPixels/uiScale) : 73;
         int width=railPixels>0?railPixels:Px(logicalWidth);
@@ -429,13 +430,21 @@ sealed class Hud : Form
                 request.Visible=visible;
             }
             if(id=="context")SetLabel(capacity,String.IsNullOrEmpty(capacity.Text)?"— / —":capacity.Text,5,y+42,logicalWidth-10,16,muted,7,FontStyle.Regular);
+            if(id=="remaining")
+            {
+                SetLabel(remainingSecondary,remainingSecondary.Text,4,y+42,logicalWidth-8,24,accent,10,FontStyle.Bold);
+                // Shared pixel boundary avoids a one-pixel overlap from
+                // independently rounded positions/heights at fractional DPI.
+                row.value.Height=Math.Max(1,Math.Min(row.value.Height,remainingSecondary.Top-row.value.Top));
+                remainingSecondary.Visible=visible && display.QuotaWindowCount>1;
+            }
             if(id=="time")
             {
                 SetLabel(spanCaption,"跨度",4,y+48,logicalWidth-8,16,muted,8,FontStyle.Regular);
                 SetLabel(spanTime,String.IsNullOrEmpty(spanTime.Text)?"—":spanTime.Text,4,y+66,logicalWidth-8,26,ink,12,FontStyle.Bold);
                 spanCaption.Visible=visible && !compactLayout;spanTime.Visible=visible;
             }
-            if(visible){rules.Add(y-8);y+=Metrics.Height(id);}
+            if(visible){rules.Add(y-8);y+=display.Height(id);}
         }
         capacity.Visible=!display.Hidden.Contains("context") && !compactLayout;
         menuTheme.Style(menu,uiScale);
@@ -453,6 +462,7 @@ sealed class Hud : Form
                 if(id=="input")values.Add(requestInput);else if(id=="output")values.Add(requestOutput);
                 values.Add(rows[id].value);
                 if(id=="time")values.Add(spanTime);
+                if(id=="remaining" && display.QuotaWindowCount>1)values.Add(remainingSecondary);
             }
             int start=Px(34),step=(Height-Px(39))/values.Count;
             for(int i=0;i<values.Count;i++)
@@ -521,9 +531,31 @@ sealed class Hud : Form
     void RenderRemaining()
     {
         var snapshot=QuotaReader.Current(data==null ? null : data.accountQuota);
-        var window=QuotaReader.Limiting(snapshot);
-        remaining.Text=(compactLayout ? "余 " : "")+(window==null ? "—" : window.remaining.ToString("0.#",CultureInfo.InvariantCulture)+"%");
-        remaining.ForeColor=window!=null && window.remaining<=10 ? Color.FromArgb(185,94,90) : accent;
+        if(UpdateQuotaWindowCount(snapshot))
+        {
+            if(codex!=IntPtr.Zero){layoutPixels=0;UpdateDock();if(!dragging)MoveToDock();}
+            else ApplyLayout();
+            return;
+        }
+        var windows=snapshot==null ? new QuotaWindow[0] : snapshot.windows.OrderBy(x=>x.windowMinutes>0?x.windowMinutes:Int64.MaxValue).ToArray();
+        QuotaWindow first=windows.Length>0?windows[0]:null,second=windows.Length>1?windows[1]:null;
+        RenderQuotaWindow(remaining,first,false);RenderQuotaWindow(remainingSecondary,second,true);
+        FitNumbers();
+    }
+    bool UpdateQuotaWindowCount(QuotaSnapshot snapshot)
+    {
+        int count=snapshot!=null && snapshot.windows.Length>1?2:1;
+        bool changed=display.QuotaWindowCount!=count;display.QuotaWindowCount=count;return changed;
+    }
+    void RenderQuotaWindow(Label label,QuotaWindow window,bool second)
+    {
+        if(window==null){label.Text=second?"":compactLayout?"余 —":"额度 —";label.ForeColor=accent;return;}
+        string name=window.name;
+        if(String.IsNullOrEmpty(name) || name=="额度窗口")name=second?"窗口2":"窗口1";
+        if(compactLayout)name=name.Replace(" 小时","h").Replace(" 天","d").Replace(" 分钟","m");
+        else name=name.Replace(" ","");
+        label.Text=name+" "+(window==null?"—":window.remaining.ToString("0.#",CultureInfo.InvariantCulture)+"%");
+        label.ForeColor=window!=null && window.remaining<=10 ? Color.FromArgb(185,94,90) : accent;
     }
     void ClearReadings()
     {

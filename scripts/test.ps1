@@ -27,11 +27,11 @@ $builder=Join-Path $qa 'FixtureBuilder.exe'
 if($LASTEXITCODE -ne 0){throw 'Fixture builder compilation failed'}
 Invoke-Fixture $builder @($fixture)
 $reader=Join-Path $qa 'ReaderChecks.exe'
-& $compiler /nologo /define:READER_CHECKS /target:exe /platform:x64 "/out:$reader" /reference:System.Web.Extensions.dll (Join-Path $root 'src\SessionReader.cs') (Join-Path $root 'src\SessionCounters.cs') (Join-Path $root 'src\SessionTiming.cs') (Join-Path $root 'tests\ReaderChecks.cs')
+& $compiler /nologo /define:READER_CHECKS /target:exe /platform:x64 "/out:$reader" /reference:System.Web.Extensions.dll (Join-Path $root 'src\SessionReader.cs') (Join-Path $root 'src\SessionCounters.cs') (Join-Path $root 'src\SessionTiming.cs') (Join-Path $root 'src\NativeThreadCatalog.cs') (Join-Path $root 'src\AppPaths.cs') (Join-Path $root 'tests\ReaderChecks.cs')
 if($LASTEXITCODE -ne 0){throw 'Reader checks compilation failed'}
 Invoke-Fixture $reader @()
 $version=[IO.File]::ReadAllText((Join-Path $root 'VERSION')).Trim()
-foreach($name in @('AppPathsChecks','ResponsivenessChecks','AppearanceChecks','QuotaChecks','QuotaFreshnessChecks','QuotaIoChecks','InteractionChecks','MenuResourceChecks','SessionCounterChecks','SessionTimingChecks','NameLayoutChecks','DetectionChecks','LayoutChecks','MovementChecks','VisibilityChecks')){
+foreach($name in @('AppPathsChecks','SessionCatalogChecks','ResponsivenessChecks','AppearanceChecks','QuotaChecks','PlanQuotaChecks','QuotaDisplayChecks','QuotaFreshnessChecks','QuotaIoChecks','InteractionChecks','MenuResourceChecks','SessionCounterChecks','SessionTimingChecks','NameLayoutChecks','DetectionChecks','LayoutChecks','MovementChecks','VisibilityChecks')){
     $exe=Join-Path $qa ($name+'.exe');$report=Join-Path $qa ($name+'.txt')
     & $compiler /nologo /target:winexe /platform:x64 "/main:$name" "/out:$exe" $refs $sources (Join-Path $root "tests\$name.cs")
     if($LASTEXITCODE -ne 0){throw "Check compilation failed: $name"}
@@ -53,3 +53,6 @@ $readings=Get-Content -LiteralPath $usage -Raw | ConvertFrom-Json
 if($metadata.name -ne 'Codex Lite HUD' -or $metadata.version -ne $version -or $metadata.codexHome -ne $fixture -or $metadata.dataFolder -ne $state){throw 'Clean binary path/product check failed'}
 if($readings.input -ne 53000000 -or $readings.output -ne 200000 -or $readings.accountQuota.windows[0].remaining -ne 26 -or $readings.turns -ne 1 -or $readings.completedTurns -ne 1 -or $readings.compactions -ne 1 -or $readings.runningMs -ne 4000 -or $readings.spanMs -lt 4000){throw 'Clean binary fixture usage/counters/timing differ'}
 Write-Output 'PASS clean EXE, isolated CODEX_HOME, custom data folder and fixture token/quota/turn/compaction/time readings.'
+$launcherReport=Join-Path $qa 'LauncherChecks.txt'
+$powershell=Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
+try{Invoke-Fixture $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $root 'tests\LauncherChecks.ps1'),$qa,$launcherReport)}finally{if(Test-Path -LiteralPath $launcherReport){Get-Content -LiteralPath $launcherReport}}

@@ -17,7 +17,7 @@ static class LayoutChecks
             Application.EnableVisualStyles();
             var data=SessionReader.Read(args[0]);
             data.runningMs=(long)TimeSpan.FromHours(12.3).TotalMilliseconds;data.spanMs=(long)TimeSpan.FromDays(23.4).TotalMilliseconds;
-            data.accountQuota=new QuotaSnapshot { readAt=DateTimeOffset.Now.ToString("o"),source="layout check",windows=new[]{new QuotaWindow { name="7 天",remaining=100 }} };
+            data.accountQuota=new QuotaSnapshot { readAt=DateTimeOffset.Now.ToString("o"),source="layout check",windows=new[]{new QuotaWindow { name="5 小时",windowMinutes=300,remaining=100 },new QuotaWindow { name="7 天",windowMinutes=10080,remaining=100 }} };
             var cases=new[]{new[]{73f,730f,1f},new[]{73f,620f,1f},new[]{73f,474f,1f},new[]{73f,164f,1f},new[]{73f,369f,1f},new[]{73f,370f,1f},new[]{110f,930f,1.5f},new[]{95f,620f,1f}};
             var hostLimit=SystemInformation.MaxWindowTrackSize;
             if(args.Length>2)hostLimit.Height=Math.Min(hostLimit.Height,Int32.Parse(args[2]));
@@ -44,7 +44,7 @@ static class LayoutChecks
                     if(required.Width>title.Width || required.Height>title.Height)throw new Exception("Title does not fit multiline area: "+required+" in "+title.Size);
                 }
                 if(form.ClientSize.Width!=(int)sample[0] || form.ClientSize.Height!=(int)sample[1])throw new Exception("Viewport size mismatch: expected="+sample[0]+"x"+sample[1]+", actual="+form.ClientSize+", host limit="+hostLimit);
-                foreach(string name in new[]{"requestInput","usage","requestOutput","output","context","speed","remaining","counts","time","spanTime"})
+                foreach(string name in new[]{"requestInput","usage","requestOutput","output","context","speed","remaining","remainingSecondary","counts","time","spanTime"})
                 {
                     var label=(Label)typeof(Hud).GetField(name,Private).GetValue(form);
                     var measured=TextRenderer.MeasureText(label.Text,label.Font,new Size(32767,32767),TextFormatFlags.SingleLine|TextFormatFlags.NoPrefix);
@@ -54,6 +54,8 @@ static class LayoutChecks
                 var rows=(IDictionary)typeof(Hud).GetField("rows",Private).GetValue(form);
                 var settings=(DisplaySettings)typeof(Hud).GetField("display",Private).GetValue(form);
                 var running=(Label)typeof(Hud).GetField("time",Private).GetValue(form);var span=(Label)typeof(Hud).GetField("spanTime",Private).GetValue(form);
+                var firstQuota=(Label)typeof(Hud).GetField("remaining",Private).GetValue(form);var secondQuota=(Label)typeof(Hud).GetField("remainingSecondary",Private).GetValue(form);
+                if(firstQuota.Bottom>secondQuota.Top || !firstQuota.Text.Contains("100%") || !secondQuota.Text.Contains("100%"))throw new Exception("Two quota windows overlap or disappear at "+form.Size+": "+firstQuota.Text+" "+firstQuota.Bounds+" / "+secondQuota.Text+" "+secondQuota.Bounds);
                 bool compactTime=(bool)typeof(Hud).GetField("compactLayout",Private).GetValue(form);
                 if(running.Text.Contains("/") || span.Text.Contains("/") || running.Bottom>span.Top)throw new Exception("Time readings still share one crowded line");
                 if(!compactTime && sample[1]/sample[2]>=620 && (running.Font.Size<13*sample[2] || span.Font.Size<13*sample[2]))throw new Exception("Time digits are too small at normal height");
@@ -63,7 +65,7 @@ static class LayoutChecks
                     object row=rows[id];var label=(Label)row.GetType().GetField("value",Private).GetValue(row);
                     var measured=TextRenderer.MeasureText(label.Text,label.Font,new Size(32767,32767),TextFormatFlags.SingleLine|TextFormatFlags.NoPrefix);
                     if(measured.Width>label.Width || measured.Height>label.Height || label.Top<bottom || label.Bottom>form.Height)throw new Exception(id+" clipped, overlaps, or leaves viewport at "+form.Size);
-                    bottom=label.Bottom;
+                    bottom=id=="remaining"?secondQuota.Bottom:label.Bottom;
                 }
                 using(var image=new Bitmap(form.Width,form.Height))
                 {
@@ -82,6 +84,7 @@ static class LayoutChecks
                         }
                         if(child==typeof(Hud).GetField("requestInput",Private).GetValue(form) || child==typeof(Hud).GetField("requestOutput",Private).GetValue(form))shown=true;
                         if(child==span || (!compact && child==typeof(Hud).GetField("spanCaption",Private).GetValue(form)))shown=true;
+                        if(child==secondQuota && !settings.Hidden.Contains("remaining") && settings.QuotaWindowCount>1)shown=true;
                         if(!shown)continue;
                         using(var layer=new Bitmap(child.Width,child.Height)){child.DrawToBitmap(layer,child.ClientRectangle);graphics.DrawImageUnscaled(layer,child.Location);}
                     }

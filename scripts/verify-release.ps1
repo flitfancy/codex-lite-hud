@@ -4,7 +4,7 @@ $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
 $version=[IO.File]::ReadAllText((Join-Path $root 'VERSION')).Trim()
 $name="codex-lite-hud-$version-win-x64";$zip=Join-Path $root "dist\$name.zip"
-$expected=@('CodexLiteHud.exe','README.md','README-EN.md','first-run.md','CHANGELOG.md','LICENSE','VERSION','install-shortcuts.ps1','portable.flag','docs/DATA.md','docs/DEVELOPMENT.md','docs/PERFORMANCE.md')
+$expected=@('CodexLiteHud.exe','README.md','README-EN.md','first-run.md','CHANGELOG.md','LICENSE','VERSION','install-shortcuts.ps1','launch-with-codex.ps1','portable.flag','docs/DATA.md','docs/DEVELOPMENT.md','docs/PERFORMANCE.md')
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $archive=[IO.Compression.ZipFile]::OpenRead($zip)
 try{

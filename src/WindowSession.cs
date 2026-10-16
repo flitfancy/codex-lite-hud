@@ -241,38 +241,3 @@ static class WindowSession
         throw new InvalidOperationException("打开侧边栏中的本机会话后显示");
     }
 }
-
-// Windows' built-in SQLite is used read-only, only for the ID/archived
-// metadata needed to distinguish an active chat from an older namesake.
-static class NativeThreadCatalog
-{
-    static DateTime readAt;
-    static HashSet<string> cached;
-    [DllImport("winsqlite3.dll",CallingConvention=CallingConvention.Cdecl)] static extern int sqlite3_open_v2(byte[] filename,out IntPtr database,int flags,IntPtr vfs);
-    [DllImport("winsqlite3.dll",CallingConvention=CallingConvention.Cdecl)] static extern int sqlite3_prepare_v2(IntPtr database,byte[] sql,int bytes,out IntPtr statement,IntPtr tail);
-    [DllImport("winsqlite3.dll",CallingConvention=CallingConvention.Cdecl)] static extern int sqlite3_step(IntPtr statement);
-    [DllImport("winsqlite3.dll",CallingConvention=CallingConvention.Cdecl)] static extern IntPtr sqlite3_column_text(IntPtr statement,int column);
-    [DllImport("winsqlite3.dll",CallingConvention=CallingConvention.Cdecl)] static extern int sqlite3_finalize(IntPtr statement);
-    [DllImport("winsqlite3.dll",CallingConvention=CallingConvention.Cdecl)] static extern int sqlite3_close(IntPtr database);
-    internal static HashSet<string> ActiveIds()
-    {
-        if(DateTime.UtcNow-readAt < TimeSpan.FromSeconds(5)) return cached;
-        readAt=DateTime.UtcNow;
-        IntPtr database=IntPtr.Zero,statement=IntPtr.Zero;
-        try
-        {
-            string path=AppPaths.FindStateDatabase(Program.CodexHome);
-            if(!File.Exists(path)) return cached=null;
-            if(sqlite3_open_v2(System.Text.Encoding.UTF8.GetBytes(path+"\0"),out database,1,IntPtr.Zero)!=0) return cached=null;
-            byte[] sql=System.Text.Encoding.UTF8.GetBytes("SELECT id FROM threads WHERE archived=0\0");
-            if(sqlite3_prepare_v2(database,sql,sql.Length,out statement,IntPtr.Zero)!=0) return cached=null;
-            var result=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            int status;
-            while((status=sqlite3_step(statement))==100) result.Add(Marshal.PtrToStringAnsi(sqlite3_column_text(statement,0)));
-            if(status!=101) return cached=null;
-            return cached=result;
-        }
-        catch { return cached=null; }
-        finally { if(statement!=IntPtr.Zero) sqlite3_finalize(statement); if(database!=IntPtr.Zero) sqlite3_close(database); }
-    }
-}
