@@ -19,7 +19,7 @@ sealed partial class Hud
         numberFit.Clear();bodyFit.Clear();SuspendLayout();
         int logicalWidth=railPixels>0 ? (int)Math.Round(railPixels/uiScale) : 73;
         int width=railPixels>0?railPixels:Px(logicalWidth);
-        nameLayout.Measure(NameText,width,uiScale);
+        nameLayout.Measure(NameText,width,uiScale,fontFamily);
         int natural=display.NaturalHeight+nameLayout.LogicalHeight-28;
         int height=layoutPixels>0 ? layoutPixels : Px(natural);
         heightScale=Math.Min(1,height/(natural*uiScale));
@@ -86,8 +86,8 @@ sealed partial class Hud
     }
     void ReplaceFont(Label label,float pixels,FontStyle style)
     {
-        if(label.Font.Unit==GraphicsUnit.Pixel && Math.Abs(label.Font.Size-pixels)<.01 && label.Font.Style==style){label.Tag=pixels;return;}
-        var previous=label.Font;label.Font=new Font(Typography.Family,pixels,style,GraphicsUnit.Pixel);label.Tag=pixels;previous.Dispose();
+        if(label.Font.Unit==GraphicsUnit.Pixel && Math.Abs(label.Font.Size-pixels)<.01 && label.Font.Style==style && Typography.Matches(label.Font,fontFamily)){label.Tag=pixels;return;}
+        var previous=label.Font;label.Font=new Font(fontFamily,pixels,style,GraphicsUnit.Pixel);label.Tag=pixels;previous.Dispose();
     }
     static void KeepAbove(Label first,Label next)
     {
@@ -186,9 +186,9 @@ sealed partial class Hud
         // Pixel fonts prevent the primary monitor's DPI from enlarging text
         // inside a narrower rail on another monitor.
         float pixels=Typography.Pixels(size,uiScale,textDensity);
-        if(previous==null || previous.Unit!=GraphicsUnit.Pixel || Math.Abs(previous.Size-pixels)>.01 || previous.Style!=style)
+        if(previous==null || previous.Unit!=GraphicsUnit.Pixel || Math.Abs(previous.Size-pixels)>.01 || previous.Style!=style || !Typography.Matches(previous,fontFamily))
         {
-            label.Font=new Font(Typography.Family,pixels,style,GraphicsUnit.Pixel);
+            label.Font=new Font(fontFamily,pixels,style,GraphicsUnit.Pixel);
             if(previous!=null)previous.Dispose();
         }
         label.Tag=pixels;
@@ -248,7 +248,7 @@ sealed partial class Hud
         int available=dockBottom-dockTop-effectiveGap-(int)Math.Round(8*targetScale)-reserved;
         minimumTop=dockTop+Math.Max(0,reserved);
         dockFits=available>=(int)Math.Round(164*targetScale);
-        nameLayout.Measure(NameText,width,targetScale);
+        nameLayout.Measure(NameText,width,targetScale,fontFamily);
         int desired=(int)Math.Round((display.NaturalHeight+nameLayout.LogicalHeight-28)*targetScale);
         if(!positionLocked){available=Screen.FromHandle(codex).WorkingArea.Height-(int)Math.Round(16*targetScale);dockFits=true;}
         int height=Math.Max((int)Math.Round(164*targetScale),Math.Min(desired,available));
@@ -256,7 +256,7 @@ sealed partial class Hud
     }
     void UpdateLayoutViewport(int width,int height,float targetScale)
     {
-        nameLayout.Measure(NameText,width,targetScale);
+        nameLayout.Measure(NameText,width,targetScale,fontFamily);
         // A constrained viewport keeps the same outer size when the title grows.
         // Its logical height still changes every row's position and scale.
         if(Math.Abs(uiScale-targetScale)>.01 || railPixels!=width || layoutPixels!=height || laidOutTitleHeight!=nameLayout.LogicalHeight)
@@ -310,8 +310,8 @@ sealed partial class Hud
         return tone==MetricTone.Accent?accent:ink;
     }
 
-    void FitNumbers(){numberFit.Apply(numericLabels,uiScale);}
-    void FitBody(){bodyFit.Apply(bodyLabels,uiScale,sessionTitle);}
+    void FitNumbers(){numberFit.Apply(numericLabels,uiScale,null,fontFamily);}
+    void FitBody(){bodyFit.Apply(bodyLabels,uiScale,sessionTitle,fontFamily);}
 
     static string Short(long n)
     {

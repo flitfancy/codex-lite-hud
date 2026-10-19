@@ -97,6 +97,8 @@ sealed partial class Hud
                 windowEvents = windowEvents,
                 positionEvents = tracking == null ? 0 : tracking.PositionEvents,
                 x = Left, y = Top, width = Width, height = Height,
+                fontFamily = fontFamily,
+                requestedFontFamily = appearance.FontFamily,
                 nativeBackdrop = backdrop.Ready,
                 backgroundLeft = ColorTranslator.ToHtml(backgroundLeft),
                 backgroundRight = ColorTranslator.ToHtml(backgroundRight),

@@ -14,6 +14,19 @@ sealed class HudMenuRenderer : ToolStripRenderer, IDisposable
     Color muted=Color.FromArgb(131,128,144),accent=Color.FromArgb(103,95,139);
     Color border=Color.FromArgb(222,220,232),selection=Color.FromArgb(230,227,240);
     bool disposed;
+    string fontFamily=Typography.Family;
+
+    internal void SetFontFamily(string family)
+    {
+        if(disposed || fontFamily==family)return;
+        var previous=new List<Font>(fonts.Values);fonts.Clear();fontFamily=family;
+        foreach(var reference in menus.ToArray())
+        {
+            var menu=reference.Target as ToolStripDropDown;
+            if(menu!=null && !menu.IsDisposed)Style(menu,menu.Font.Size/12f);
+        }
+        foreach(var font in previous)font.Dispose();
+    }
 
     internal void Update(Color backgroundColor,Color inkColor,Color mutedColor,Color accentColor)
     {
@@ -36,7 +49,7 @@ sealed class HudMenuRenderer : ToolStripRenderer, IDisposable
         Font font;
         if(!fonts.TryGetValue(key,out font))
         {
-            font=new Font("Microsoft YaHei UI",12f*scale,FontStyle.Regular,GraphicsUnit.Pixel);
+            font=new Font(fontFamily,12f*scale,FontStyle.Regular,GraphicsUnit.Pixel);
             fonts.Add(key,font);
         }
         menu.Renderer=this;menu.Font=font;

@@ -4,20 +4,20 @@ using System.Globalization;
 using System.Text;
 using System.Windows.Forms;
 
-// Only remeasure when the name, rail width or DPI changes, never on movement.
+// Only remeasure when the name, rail width, DPI or family changes.
 sealed class NameLayout
 {
-    string raw;int width;float scale;
+    string raw,family;int width;float scale;
     internal string Wrapped;
     internal int LogicalHeight;
-    internal void Measure(string name,int railWidth,float dpiScale)
+    internal void Measure(string name,int railWidth,float dpiScale,string fontFamily=Typography.Family)
     {
-        if(raw==name && width==railWidth && scale==dpiScale)return;
-        raw=name;width=railWidth;scale=dpiScale;
+        if(raw==name && width==railWidth && scale==dpiScale && family==fontFamily)return;
+        raw=name;width=railWidth;scale=dpiScale;family=fontFamily;
         int logicalWidth=(int)Math.Round(railWidth/dpiScale);
         int pixels=Math.Max(20,(int)Math.Round((logicalWidth-6)*dpiScale));
         float density=Typography.WidthDensity(logicalWidth);
-        using(var font=new Font(Typography.Family,Typography.Pixels(Typography.BodyPoints,dpiScale,density),Typography.BodyStyle,GraphicsUnit.Pixel))
+        using(var font=new Font(fontFamily,Typography.Pixels(Typography.BodyPoints,dpiScale,density),Typography.BodyStyle,GraphicsUnit.Pixel))
         {
             var result=new StringBuilder();string line="";
             var elements=StringInfo.GetTextElementEnumerator((name??"").Replace("\r", ""));

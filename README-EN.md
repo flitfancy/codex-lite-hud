@@ -4,15 +4,17 @@
 
 [简体中文](README.md) · [First run](first-run.md) · [Changelog](CHANGELOG.md) · [Releases](https://github.com/flitfancy/codex-lite-hud/releases)
 
-Codex Lite HUD is a small Windows overlay showing the selected local chat's cumulative input and output tokens, recorded context usage, request-average tokens per second, and remaining account quota. Current version: **1.0.2**.
+Codex Lite HUD is a small Windows overlay showing the selected local chat's cumulative input and output tokens, recorded context usage, request-average tokens per second, and remaining account quota. Current version: **1.0.3**.
 
-Download `codex-lite-hud-1.0.2-win-x64.zip` from Releases, extract it into a writable folder, and run `CodexLiteHud.exe`. Magpie, Node.js and Python are not required. The tested environment is Windows 11 x64 with .NET Framework 4.8-series and the Windows Codex desktop app. Other Windows/client versions, CLI sessions and remote-only chats require separate validation.
+Download `codex-lite-hud-1.0.3-win-x64.zip` from Releases, extract it into a writable folder, and run `CodexLiteHud.exe`. Magpie, Node.js and Python are not required. The tested environment is Windows 11 x64 with .NET Framework 4.8-series and the Windows Codex desktop app. Other Windows/client versions, CLI sessions and remote-only chats require separate validation.
 
 To upgrade, exit the old HUD, replace the program and scripts in the same folder with the new package, preserve your `data/` settings, and start the HUD again.
 
 ## Readings and behavior
 
 Body text and readings use larger, bold type, with one shared size for body text and one for every visible reading, including runtime, span and context capacity. Each group fits its actual label space without an extra height-based font reduction; unchanged content reuses font measurements.
+
+The right-click **字体 (Font)** menu offers installed fonts, including LXGW WenKai Screen. Labels, title measurement and menus use the selected family together. The preference is stored separately in `appearance.json`, preserving metric visibility and order. Missing fonts fall back to the default family and are marked unavailable in the menu. Font files are not bundled, and selecting a font adds no background polling.
 
 - Input/output each show the latest recorded request (本次) and chat total (对话). Input includes cached tokens; output includes reasoning tokens. A user turn can contain several requests; the latest request is not a turn total.
 - Context is the latest recorded request's input plus output, divided by the recorded context window, rather than cumulative chat input.

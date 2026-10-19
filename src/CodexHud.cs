@@ -30,6 +30,9 @@ sealed partial class Hud : Form
     readonly Label inputCaption = new Label(), outputCaption = new Label(), contextCaption = new Label(), speedCaption = new Label();
     readonly Label close = new Label();
     readonly DisplaySettings display=new DisplaySettings();
+    readonly AppearanceSettings appearance=new AppearanceSettings();
+    string fontFamily=Typography.Family;
+    Font ownedFont;
     readonly Dictionary<string,MetricRow> rows=new Dictionary<string,MetricRow>();
     readonly List<Label> numericLabels=new List<Label>(),bodyLabels=new List<Label>();
     readonly List<int> rules=new List<int>();
@@ -77,7 +80,8 @@ sealed partial class Hud : Form
         BackColor = backgroundLeft;
         ForeColor = ink;
         Opacity = 0;
-        Font = new Font("Microsoft YaHei UI", 9);
+        appearance.Load();fontFamily=Typography.ResolveFamily(appearance.FontFamily);
+        ownedFont=new Font(fontFamily,9);Font=ownedFont;menuTheme.SetFontFamily(fontFamily);
         display.Load();
         RegisterMetric("input",inputCaption,usage,requestInput);RegisterMetric("output",outputCaption,output,requestOutput);
         RegisterMetric("context",contextCaption,context,capacity);RegisterMetric("time",timeCaption,time,spanTime,spanCaption);
@@ -103,6 +107,7 @@ sealed partial class Hud : Form
         menu.Items.Add(sessionMenu);
         var displayMenu=new ToolStripMenuItem("显示数据");menu.Items.Add(displayMenu);
         var orderMenu=new ToolStripMenuItem("数据顺序");menu.Items.Add(orderMenu);
+        var fontMenu=new ToolStripMenuItem("字体");menu.Items.Add(fontMenu);BuildFontMenu(fontMenu);
         var lockMenu=new ToolStripMenuItem("解锁，自由拖动");
         lockMenu.Click+=delegate{SetPositionLocked(!positionLocked);};
         menu.Opening += delegate
@@ -110,6 +115,7 @@ sealed partial class Hud : Form
             automaticMenu.Checked = SessionReader.IsAutomatic();
             lockMenu.Text=positionLocked?"解锁，自由拖动":"锁定到侧边栏";
             BuildDisplayMenus(displayMenu,orderMenu);
+            BuildFontMenu(fontMenu);
             ClearMenu(sessionMenu.DropDownItems);
             string selected = "";
             try { selected = SessionReader.SelectedId(); } catch { }
@@ -192,6 +198,27 @@ sealed partial class Hud : Form
     }
     static void ClearMenu(ToolStripItemCollection items){foreach(ToolStripItem item in items.Cast<ToolStripItem>().ToArray())item.Dispose();items.Clear();}
     void DisplayChanged(){display.Save();layoutPixels=0;ApplyLayout();if(codex!=IntPtr.Zero)Follow();}
+    void BuildFontMenu(ToolStripMenuItem fonts)
+    {
+        ClearMenu(fonts.DropDownItems);
+        string[,] choices={{"微软雅黑（默认）",Typography.Family},{"霞鹜文楷（屏幕阅读版）","LXGW WenKai Screen"},{"霞鹜文楷","LXGW WenKai"},{"鸿蒙黑体","HarmonyOS Sans SC"},{"Noto Sans SC","Noto Sans SC"},{"Noto Serif SC","Noto Serif SC"},{"Segoe UI","Segoe UI"}};
+        for(int i=0;i<choices.GetLength(0);i++)
+        {
+            string requested=choices[i,1],resolved;bool installed=Typography.TryFamily(requested,out resolved);
+            var item=new ToolStripMenuItem(choices[i,0]+(installed?"":"（未安装）")){Enabled=installed,Checked=installed && String.Equals(fontFamily,resolved,StringComparison.OrdinalIgnoreCase)};
+            item.Click+=delegate{ChangeFontFamily(requested);};fonts.DropDownItems.Add(item);
+        }
+        menuTheme.Style(fonts.DropDown,uiScale);
+    }
+    void ChangeFontFamily(string requested)
+    {
+        string resolved=Typography.ResolveFamily(requested);appearance.FontFamily=resolved;appearance.Save();
+        if(fontFamily==resolved)return;
+        fontFamily=resolved;
+        var previous=ownedFont;ownedFont=new Font(fontFamily,9);Font=ownedFont;
+        menuTheme.SetFontFamily(fontFamily);ApplyLayout();if(codex!=IntPtr.Zero)Follow();
+        if(previous!=null)previous.Dispose();WriteStatus(Visible);
+    }
     void SetPositionLocked(bool locked)
     {
         if(positionLocked==locked)return;
@@ -215,6 +242,7 @@ sealed partial class Hud : Form
     {
         if(disposing){StopTracking();follow.Dispose();backdrop.Dispose();menu.Dispose();menuTheme.Dispose();}
         base.Dispose(disposing);
+        if(disposing && ownedFont!=null){ownedFont.Dispose();ownedFont=null;}
     }
     void BeginDrag(object sender, MouseEventArgs e)
     {

@@ -32,7 +32,7 @@ if($LASTEXITCODE -ne 0){throw 'Reader checks compilation failed'}
 Invoke-Fixture $reader @()
 $version=[IO.File]::ReadAllText((Join-Path $root 'VERSION')).Trim()
 $regressionGroups=1 # ReaderChecks above; fixture generation is not a check group.
-foreach($name in @('AppPathsChecks','SessionCatalogChecks','SessionRecoveryChecks','ResponsivenessChecks','AppearanceChecks','QuotaChecks','PlanQuotaChecks','QuotaDisplayChecks','QuotaFreshnessChecks','QuotaIoChecks','InteractionChecks','MenuResourceChecks','SessionCounterChecks','SessionTimingChecks','NameLayoutChecks','TypographyChecks','DetectionChecks','LayoutChecks','MovementChecks','VisibilityChecks')){
+foreach($name in @('AppPathsChecks','SessionCatalogChecks','SessionRecoveryChecks','ResponsivenessChecks','AppearanceChecks','QuotaChecks','PlanQuotaChecks','QuotaDisplayChecks','QuotaFreshnessChecks','QuotaIoChecks','InteractionChecks','MenuResourceChecks','SessionCounterChecks','SessionTimingChecks','NameLayoutChecks','TypographyChecks','FontPreferenceChecks','DetectionChecks','LayoutChecks','MovementChecks','VisibilityChecks')){
     $exe=Join-Path $qa ($name+'.exe');$report=Join-Path $qa ($name+'.txt')
     & $compiler /nologo /target:winexe /platform:x64 "/main:$name" "/out:$exe" $refs $sources (Join-Path $root "tests\$name.cs")
     if($LASTEXITCODE -ne 0){throw "Check compilation failed: $name"}
