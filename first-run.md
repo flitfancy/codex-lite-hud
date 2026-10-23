@@ -2,7 +2,7 @@
 
 需要 Windows x64、Windows 桌面版 Codex，以及 .NET Framework 4.8 系列。首版实际验证环境为 Windows 11。无需管理员权限、Magpie、Node.js、Python 或额外 API 密钥。
 
-1. 下载 `codex-lite-hud-1.0.3-win-x64.zip`，解压到可写目录，保留其中的 `portable.flag`。
+1. 下载 `codex-lite-hud-1.0.4-win-x64.zip`，解压到可写目录，保留其中的 `portable.flag`。
 2. 打开 Codex 和一个有本机记录的聊天，保持左侧导航栏及聊天列表可见。
 3. 双击 `CodexLiteHud.exe`，读数显示在头像上方。
 4. 输入和输出各显示“本次请求 / 本对话”两行。右键选择项目及顺序，模型默认隐藏；解锁后可自由拖动，重新锁定就贴回侧栏。HUD 不显示悬停提示。

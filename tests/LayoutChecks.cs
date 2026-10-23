@@ -18,7 +18,7 @@ static class LayoutChecks
             Application.EnableVisualStyles();
             var data=SessionReader.Read(args[0]);
             data.runningMs=(long)TimeSpan.FromHours(12.3).TotalMilliseconds;data.spanMs=(long)TimeSpan.FromDays(23.4).TotalMilliseconds;
-            data.accountQuota=new QuotaSnapshot { readAt=DateTimeOffset.Now.ToString("o"),source="layout check",windows=new[]{new QuotaWindow { name="5 小时",windowMinutes=300,remaining=100 },new QuotaWindow { name="7 天",windowMinutes=10080,remaining=100 }} };
+            data.accountQuota=new QuotaSnapshot { readAt=DateTimeOffset.Now.ToString("o"),source="layout check",windows=new[]{new QuotaWindow { name="5 小时",windowMinutes=300,remaining=100,resetAt=DateTimeOffset.Now.AddHours(3).AddMinutes(10).ToString("o") },new QuotaWindow { name="7 天",windowMinutes=10080,remaining=100,resetAt=DateTimeOffset.Now.AddDays(6).AddHours(10).ToString("o") }} };
             var cases=new[]{new[]{73f,730f,1f},new[]{73f,620f,1f},new[]{73f,474f,1f},new[]{73f,164f,1f},new[]{73f,369f,1f},new[]{73f,370f,1f},new[]{110f,930f,1.5f},new[]{95f,620f,1f}};
             var hostLimit=SystemInformation.MaxWindowTrackSize;
             if(args.Length>2)hostLimit.Height=Math.Min(hostLimit.Height,Int32.Parse(args[2]));

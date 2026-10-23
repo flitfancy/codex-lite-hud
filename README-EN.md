@@ -4,9 +4,9 @@
 
 [简体中文](README.md) · [First run](first-run.md) · [Changelog](CHANGELOG.md) · [Releases](https://github.com/flitfancy/codex-lite-hud/releases)
 
-Codex Lite HUD is a small Windows overlay showing the selected local chat's cumulative input and output tokens, recorded context usage, request-average tokens per second, and remaining account quota. Current version: **1.0.3**.
+Codex Lite HUD is a small Windows overlay showing the selected local chat's cumulative input and output tokens, recorded context usage, request-average tokens per second, and remaining account quota. Current version: **1.0.4**.
 
-Download `codex-lite-hud-1.0.3-win-x64.zip` from Releases, extract it into a writable folder, and run `CodexLiteHud.exe`. Magpie, Node.js and Python are not required. The tested environment is Windows 11 x64 with .NET Framework 4.8-series and the Windows Codex desktop app. Other Windows/client versions, CLI sessions and remote-only chats require separate validation.
+Download `codex-lite-hud-1.0.4-win-x64.zip` from Releases, extract it into a writable folder, and run `CodexLiteHud.exe`. Magpie, Node.js and Python are not required. The tested environment is Windows 11 x64 with .NET Framework 4.8-series and the Windows Codex desktop app. Other Windows/client versions, CLI sessions and remote-only chats require separate validation.
 
 To upgrade, exit the old HUD, replace the program and scripts in the same folder with the new package, preserve your `data/` settings, and start the HUD again.
 
@@ -20,7 +20,7 @@ The right-click **字体 (Font)** menu offers installed fonts, including LXGW We
 - Context is the latest recorded request's input plus output, divided by the recorded context window, rather than cumulative chat input.
 - Speed includes request waiting time and is not a pure decoding benchmark.
 - Nine blocks are shown by default; model is hidden and available from the menu. Turns/compactions follow context, then cache share. Request duration precedes runtime/span; runtime and span use separate readings. Right-click to toggle or reorder blocks. Choices persist, with a restore-default action. The HUD and menus have no hover tooltips.
-- Account quota comes from local log snapshots. Each recorded window shows its duration and remaining percentage, such as 5 hours and 7 days. One window takes one line; a second line appears only when a second valid window exists. Expired windows release their line.
+- Account quota comes from local log snapshots. Under 剩余/重置 (remaining/reset), `7%/4.7天` means 7% remaining and about 4.7 days until the recorded reset instant. The countdown updates even without a new snapshot; an unknown reset displays `7%/—`. One window takes one line; a second line appears only when a second valid window exists. Expired windows release their line.
 - Turns use distinct Codex `turn_id` start events. Compactions count persisted top-level `compacted` records, deduplicated by available IDs. Tool calls, in-turn steering and embedded replacement history do not create extra turns; missing turn events display an unknown value.
 - Time has two separate readings: cumulative turn runtime and elapsed span since the first retained record. Runtime includes tool and interaction waiting; active turns keep counting. The CLH header stays at the top, while the chat name expands and contracts with its wrapped text.
 - The overlay follows the selected local chat and the main window. It stays with a visible Codex window when another app is active, follows normal window stacking, and hides when Codex is hidden, minimized or closed.

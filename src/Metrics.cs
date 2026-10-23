@@ -34,7 +34,7 @@ static class Metrics
         new Definition("duration","请求耗时"),
         new Definition("time","用时/跨度",MetricKind.Elapsed,caption:"用时",compactEmpty:"用 —"),
         new Definition("speed","tok/s",compactEmpty:"速 —"),
-        new Definition("remaining","剩余额度",MetricKind.Quota,empty:"额度 —",compactEmpty:"余 —"),
+        new Definition("remaining","剩余额度",MetricKind.Quota,caption:"剩余/重置",empty:"额度 —",compactEmpty:"余 —"),
         new Definition("model","模型",defaultHidden:true)
     };
     internal static readonly string[] All=Definitions.Select(x=>x.Id).ToArray();

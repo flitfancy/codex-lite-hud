@@ -59,7 +59,7 @@ static class TypographyChecks
                 using(var hud=new Hud(true,IntPtr.Zero))
                 {
                     var data=new Data{sessionTitle="加载本机最新的 skill 我们继续",input=48500000,output=268000,lastInput=345000,lastOutput=984,contextUsed=346000,contextLimit=828400,contextPercent=41.8,turns=20,compactions=1,cache=46705500,requestMs=35000,runningMs=181440000,spanMs=52920000,requestToks=28.1};
-                    data.accountQuota=new QuotaSnapshot{readAt=DateTimeOffset.UtcNow.ToString("o"),windows=new[]{new QuotaWindow{name="5 小时",windowMinutes=300,remaining=60},new QuotaWindow{name="7 天",windowMinutes=10080,remaining=38}}};
+                    data.accountQuota=new QuotaSnapshot{readAt=DateTimeOffset.UtcNow.ToString("o"),windows=new[]{new QuotaWindow{name="5 小时",windowMinutes=300,remaining=60,resetAt=DateTimeOffset.Now.AddHours(2).AddMinutes(4).ToString("o")},new QuotaWindow{name="7 天",windowMinutes=10080,remaining=38,resetAt=DateTimeOffset.Now.AddDays(2).AddHours(5).ToString("o")}}};
                     typeof(Hud).GetField("data",Private).SetValue(hud,data);
                     typeof(Hud).GetField("uiScale",Private).SetValue(hud,sample[2]);
                     typeof(Hud).GetField("railPixels",Private).SetValue(hud,(int)sample[0]);typeof(Hud).GetField("layoutPixels",Private).SetValue(hud,(int)sample[1]);

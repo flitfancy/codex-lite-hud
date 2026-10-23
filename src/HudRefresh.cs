@@ -49,7 +49,7 @@ sealed partial class Hud
             changed=!next.SameDisplay(data) || lastError!="";
             data=next;lastError="";
             RenderTime();
-            if(!changed)return;
+            if(!changed){RenderRemaining();return;}
             tag.Text = automatic ? "自动" : "固定";
             if(codex!=IntPtr.Zero){UpdateDock();if(!dragging)MoveToDock();}
             sessionTitle.Text = nameLayout.Wrapped;

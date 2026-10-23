@@ -17,16 +17,19 @@ static class QuotaDisplayChecks
     static void Main(string[] args)
     {
         var report=new List<string>();int passed=0,failed=0;var now=DateTimeOffset.UtcNow;
-        string reset=now.AddDays(1).ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture);
+        string reset=now.AddDays(2).AddHours(5).ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture);
+        string shortReset=now.AddHours(2).AddMinutes(4).ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture);
+        string freeReset=now.AddMinutes(12).AddSeconds(20).ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture);
         var cases=new[]{
             new Case("Missing quota occupies a single unknown reading","null","额度 —",""),
-            new Case("Plus five-hour and weekly quota both shown","{\"plan_type\":\"plus\",\"primary\":{\"used_percent\":40,\"window_minutes\":300,\"resets_at\":"+reset+"},\"secondary\":{\"used_percent\":75,\"window_minutes\":10080,\"resets_at\":"+reset+"}}","5小时 60%","7天 25%"),
-            new Case("Duration order is independent of primary or secondary","{\"primary\":{\"used_percent\":60,\"window_minutes\":10080,\"resets_at\":"+reset+"},\"secondary\":{\"used_percent\":20,\"window_minutes\":300,\"resets_at\":"+reset+"}}","5小时 80%","7天 40%"),
-            new Case("Equal percentages retain two distinct windows","{\"primary\":{\"used_percent\":40,\"window_minutes\":300,\"resets_at\":"+reset+"},\"secondary\":{\"used_percent\":40,\"window_minutes\":10080,\"resets_at\":"+reset+"}}","5小时 60%","7天 60%"),
-            new Case("Free records its actual duration without a spare row","{\"plan_type\":\"free\",\"primary\":{\"used_percent\":25,\"window_minutes\":15,\"resets_at\":"+reset+"}}","15分钟 75%",""),
-            new Case("Weekly-only Pro uses a single row","{\"plan_type\":\"prolite\",\"primary\":{\"used_percent\":36,\"window_minutes\":10080,\"resets_at\":"+reset+"}}","7天 64%",""),
-            new Case("Expired short window releases its row","{\"plan_type\":\"plus\",\"primary\":{\"used_percent\":99,\"window_minutes\":300,\"resets_at\":1},\"secondary\":{\"used_percent\":35,\"window_minutes\":10080,\"resets_at\":"+reset+"}}","7天 65%",""),
-            new Case("Unknown duration does not reserve another row","{\"primary\":{\"used_percent\":20,\"resets_at\":"+reset+"}}","窗口1 80%","")
+            new Case("Plus shows both actual reset countdowns","{\"plan_type\":\"plus\",\"primary\":{\"used_percent\":40,\"window_minutes\":300,\"resets_at\":"+shortReset+"},\"secondary\":{\"used_percent\":75,\"window_minutes\":10080,\"resets_at\":"+reset+"}}","60%/2.1时","25%/2.3天"),
+            new Case("Duration order is independent of primary or secondary","{\"primary\":{\"used_percent\":60,\"window_minutes\":10080,\"resets_at\":"+reset+"},\"secondary\":{\"used_percent\":20,\"window_minutes\":300,\"resets_at\":"+shortReset+"}}","80%/2.1时","40%/2.3天"),
+            new Case("Equal percentages retain two distinct windows","{\"primary\":{\"used_percent\":40,\"window_minutes\":300,\"resets_at\":"+shortReset+"},\"secondary\":{\"used_percent\":40,\"window_minutes\":10080,\"resets_at\":"+reset+"}}","60%/2.1时","60%/2.3天"),
+            new Case("Free shows actual reset time without a spare row","{\"plan_type\":\"free\",\"primary\":{\"used_percent\":25,\"window_minutes\":15,\"resets_at\":"+freeReset+"}}","75%/13分",""),
+            new Case("Weekly-only Pro uses a single row","{\"plan_type\":\"prolite\",\"primary\":{\"used_percent\":36,\"window_minutes\":10080,\"resets_at\":"+reset+"}}","64%/2.3天",""),
+            new Case("Expired short window releases its row","{\"plan_type\":\"plus\",\"primary\":{\"used_percent\":99,\"window_minutes\":300,\"resets_at\":1},\"secondary\":{\"used_percent\":35,\"window_minutes\":10080,\"resets_at\":"+reset+"}}","65%/2.3天",""),
+            new Case("Known reset works without window duration","{\"primary\":{\"used_percent\":20,\"resets_at\":"+reset+"}}","80%/2.3天",""),
+            new Case("Missing reset is not inferred from window duration","{\"primary\":{\"used_percent\":20,\"window_minutes\":10080}}","80%/—","")
         };
         for(int i=0;i<cases.Length;i++)
         {
@@ -52,16 +55,16 @@ static class QuotaDisplayChecks
                         // Snapshot changes can arrive without a full session repaint.
                         snapshot.windows[0].remaining=5;
                         typeof(Hud).GetMethod("RenderRemaining",Private).Invoke(hud,null);
-                        Require(first.Text=="5小时 5%" && first.ForeColor!=second.ForeColor,"Low quota color or independent background update missing");
+                        Require(first.Text=="5%/2.1时" && first.ForeColor!=second.ForeColor,"Low quota color or independent background update missing");
                         int doubleHeight=hud.Height;
                         var both=snapshot.windows;snapshot.windows=new[]{both[1]};
                         typeof(Hud).GetMethod("RenderRemaining",Private).Invoke(hud,null);
-                        Require(hud.Height==doubleHeight-24 && first.Text=="7天 25%" && second.Text=="","Two-to-one quota update did not release the row and HUD height");
+                        Require(hud.Height==doubleHeight-24 && first.Text=="25%/2.3天" && second.Text=="","Two-to-one quota update did not release the row and HUD height");
                         snapshot.windows=both;typeof(Hud).GetMethod("RenderRemaining",Private).Invoke(hud,null);
                         Require(hud.Height==doubleHeight,"One-to-two quota update did not restore the second row");
                         typeof(Hud).GetField("layoutPixels",Private).SetValue(hud,164);
                         typeof(Hud).GetMethod("ApplyLayout",Private).Invoke(hud,null);
-                        Require(first.Text=="5h 5%" && second.Text=="7d 25%","Compact mode dropped a window or its duration");
+                        Require(first.Text=="5%/2.1h" && second.Text=="25%/2.3d","Compact mode dropped a window or its reset countdown");
                         Require(first.Bottom<=second.Top,"Compact quota readings overlap");
                     }
                 }
@@ -69,6 +72,42 @@ static class QuotaDisplayChecks
             }
             catch(Exception ex){report.Add("FAIL "+item.name+": "+ex.GetBaseException().Message);failed++;}
         }
+        try
+        {
+            var at=new DateTimeOffset(2026,10,22,12,0,0,TimeSpan.FromHours(8));
+            var window=new QuotaWindow {windowMinutes=10080,remaining=7,resetAt=at.AddMinutes(61).ToUniversalTime().ToString("o")};
+            Require(Hud.QuotaReading(window,at,false)=="7%/1.1时","UTC reset was not compared against the local instant");
+            Require(Hud.QuotaReading(window,at.AddMinutes(2),false)=="7%/59分","Unchanged snapshot did not count down across the hour boundary");
+            Require(Hud.QuotaReading(window,at.AddMinutes(60).AddSeconds(30),false)=="7%/<1分","Sub-minute reset was rounded to zero");
+            Require(Hud.QuotaReading(window,at.AddMinutes(61),false)=="待更新","Expired snapshot still displayed its old percentage");
+            report.Add("PASS actual reset instant, unchanged-snapshot countdown, sub-minute and expiry boundaries");passed++;
+        }
+        catch(Exception ex){report.Add("FAIL reset countdown boundaries: "+ex.GetBaseException().Message);failed++;}
+        bool automatic=SessionReader.IsAutomatic();string selected="";
+        try{selected=SessionReader.SelectedId();}catch(FileNotFoundException){}
+        try
+        {
+            SessionReader.Select("00000000-0000-7000-8000-000000000001");
+            QuotaReader.Current(new QuotaSnapshot {readAt=now.AddMinutes(2).ToString("o"),windows=new[]{new QuotaWindow {windowMinutes=10080,remaining=7,resetAt=DateTimeOffset.Now.AddMinutes(22.5).ToString("o")}}});
+            var steady=Reader.ReadCurrent(IntPtr.Zero,false).GetAwaiter().GetResult();
+            using(var hud=new Hud(true,IntPtr.Zero))
+            {
+                typeof(Hud).GetField("data",Private).SetValue(hud,steady);
+                typeof(Hud).GetMethod("ApplyLayout",Private).Invoke(hud,null);
+                var label=(Label)typeof(Hud).GetField("remaining",Private).GetValue(hud);
+                label.Text="7%/24分";
+                typeof(Hud).GetMethod("RefreshData",Private).Invoke(hud,null);
+                var deadline=DateTime.UtcNow.AddSeconds(3);
+                while((bool)typeof(Hud).GetField("reading",Private).GetValue(hud) && DateTime.UtcNow<deadline){Application.DoEvents();System.Threading.Thread.Sleep(5);}
+                var refreshed=(Data)typeof(Hud).GetField("data",Private).GetValue(hud);
+                Require(!(bool)typeof(Hud).GetField("reading",Private).GetValue(hud),"Regular refresh did not finish");
+                Require(steady.SameDisplay(refreshed) && Object.ReferenceEquals(steady.accountQuota,refreshed.accountQuota),"Fixture unexpectedly changed the snapshot or session readings");
+                Require(label.Text=="7%/23分","Regular unchanged-data refresh left the reset countdown frozen: "+label.Text);
+            }
+            report.Add("PASS regular unchanged-session refresh updates the countdown without a new quota snapshot");passed++;
+        }
+        catch(Exception ex){report.Add("FAIL unchanged-session countdown refresh: "+ex.GetBaseException().Message);failed++;}
+        finally{if(!String.IsNullOrEmpty(selected))SessionReader.Select(selected);SessionReader.Automatic(automatic);}
         report.Add("Quota display: "+passed+" passed, "+failed+" failed, 0 skipped. Generated snapshots and hidden HUD widgets.");
         File.WriteAllLines(args[0],report);Environment.ExitCode=failed==0?0:1;
     }

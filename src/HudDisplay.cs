@@ -151,7 +151,8 @@ sealed partial class Hud
         }
         var windows=snapshot==null ? new QuotaWindow[0] : snapshot.windows.OrderBy(x=>x.windowMinutes>0?x.windowMinutes:Int64.MaxValue).ToArray();
         QuotaWindow first=windows.Length>0?windows[0]:null,second=windows.Length>1?windows[1]:null;
-        RenderQuotaWindow(remaining,first,false);RenderQuotaWindow(remainingSecondary,second,true);
+        var now=DateTimeOffset.Now;
+        RenderQuotaWindow(remaining,first,false,now);RenderQuotaWindow(remainingSecondary,second,true,now);
         FitNumbers();
     }
     bool UpdateQuotaWindowCount(QuotaSnapshot snapshot)
@@ -159,14 +160,26 @@ sealed partial class Hud
         int count=snapshot!=null && snapshot.windows.Length>1?2:1;
         bool changed=display.QuotaWindowCount!=count;display.QuotaWindowCount=count;return changed;
     }
-    void RenderQuotaWindow(Label label,QuotaWindow window,bool second)
+    internal static string QuotaReading(QuotaWindow window,DateTimeOffset now,bool compact)
+    {
+        string countdown="—";
+        DateTimeOffset reset;
+        if(DateTimeOffset.TryParse(window.resetAt,out reset))
+        {
+            var left=reset-now;
+            if(left<=TimeSpan.Zero)return "待更新";
+            double amount;string unit;
+            if(left.TotalDays>=1){amount=Math.Ceiling(left.TotalDays*10)/10;unit=compact?"d":"天";}
+            else if(left.TotalHours>=1){amount=Math.Ceiling(left.TotalHours*10)/10;unit=compact?"h":"时";}
+            else {amount=Math.Ceiling(left.TotalMinutes);unit=compact?"m":"分";}
+            countdown=left.TotalMinutes<1 ? "<1"+unit : amount.ToString("0.#",CultureInfo.InvariantCulture)+unit;
+        }
+        return window.remaining.ToString("0.#",CultureInfo.InvariantCulture)+"%/"+countdown;
+    }
+    void RenderQuotaWindow(Label label,QuotaWindow window,bool second,DateTimeOffset now)
     {
         if(window==null){label.Text=second?"":compactLayout?"余 —":"额度 —";label.ForeColor=accent;return;}
-        string name=window.name;
-        if(String.IsNullOrEmpty(name) || name=="额度窗口")name=second?"窗口2":"窗口1";
-        if(compactLayout)name=name.Replace(" 小时","h").Replace(" 天","d").Replace(" 分钟","m");
-        else name=name.Replace(" ","");
-        label.Text=name+" "+window.remaining.ToString("0.#",CultureInfo.InvariantCulture)+"%";
+        label.Text=QuotaReading(window,now,compactLayout);
         label.ForeColor=window.remaining<=10 ? Color.FromArgb(185,94,90) : accent;
     }
     void ClearReadings()

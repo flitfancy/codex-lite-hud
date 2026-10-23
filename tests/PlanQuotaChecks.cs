@@ -34,8 +34,8 @@ static class PlanQuotaChecks
             typeof(Hud).GetMethod("RenderRemaining",Private).Invoke(hud,null);
             var label=(Label)typeof(Hud).GetField("remaining",Private).GetValue(hud);
             var second=(Label)typeof(Hud).GetField("remainingSecondary",Private).GetValue(hud);
-            string text=expected.HasValue?" "+expected.Value.ToString("0.#",System.Globalization.CultureInfo.InvariantCulture)+"%":" —";
-            Require(expected.HasValue?(label.Text.EndsWith(text) || second.Text.EndsWith(text)):(label.Text.EndsWith(text) && second.Text==""),"HUD quota label: expected "+text+", actual "+label.Text+" / "+second.Text);
+            string text=expected.HasValue?expected.Value.ToString("0.#",System.Globalization.CultureInfo.InvariantCulture)+"%/":" —";
+            Require(expected.HasValue?(label.Text.StartsWith(text,StringComparison.Ordinal) || second.Text.StartsWith(text,StringComparison.Ordinal)):(label.Text.EndsWith(text) && second.Text==""),"HUD quota label: expected "+text+", actual "+label.Text+" / "+second.Text);
         }
     }
     [STAThread]
